@@ -160,7 +160,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
           |)(implicit"""
     )
       .indented(typeclasses)
-      .add(") = {")
+      .add(s"): $serviceNameFs2[F, $Ctx] = new $serviceNameFs2[F, $Ctx] {")
       .indent
       .call(serviceMethodImplementations)
       .outdent

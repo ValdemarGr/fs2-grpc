@@ -30,6 +30,7 @@ import fs2.grpc.client.ClientOptions
 import fs2.grpc.server.ServerOptions
 import fs2.grpc.client.ClientAspect
 import fs2.grpc.shared.Trivial
+import fs2.grpc.server.ServiceAspect
 
 trait GeneratedCompanion[Service[*[_], _]] {
 
@@ -131,12 +132,25 @@ trait GeneratedCompanion[Service[*[_], _]] {
 
 ///=== Service =========================================================================================================
 
+  protected def serviceBindingTrivial[F[_]: Async, A](
+      dispatcher: Dispatcher[F],
+      serviceImpl: Service[F, A],
+      serviceAspect: ServiceAspect[F, Trivial, Trivial, A],
+      serverOptions: ServerOptions
+  ): ServerServiceDefinition
+
   protected def serviceBinding[F[_]: Async, A](
       dispatcher: Dispatcher[F],
       serviceImpl: Service[F, A],
       mkCtx: Metadata => F[A],
       serverOptions: ServerOptions
-  ): ServerServiceDefinition
+  ): ServerServiceDefinition =
+    serviceBindingTrivial[F, A](
+      dispatcher,
+      serviceImpl,
+      ServiceAspect.default[F, Trivial, Trivial].modify(mkCtx),
+      serverOptions
+    )
 
   final def service[F[_]: Async, A](
       dispatcher: Dispatcher[F],
