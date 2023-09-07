@@ -1,4 +1,4 @@
-package fs2.grpc.server
+package fs2.grpc.client
 
 import io.grpc._
 import cats._

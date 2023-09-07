@@ -28,6 +28,8 @@ import cats.effect.std.Dispatcher
 import io.grpc._
 import fs2.grpc.client.ClientOptions
 import fs2.grpc.server.ServerOptions
+import fs2.grpc.client.ClientAspect
+import fs2.grpc.shared.Trivial
 
 trait GeneratedCompanion[Service[*[_], _]] {
 
@@ -35,12 +37,25 @@ trait GeneratedCompanion[Service[*[_], _]] {
 
 ///=== Client ==========================================================================================================
 
+  def mkClientTrivial[F[_]: Async, A](
+      dispatcher: Dispatcher[F],
+      channel: Channel,
+      clientAspect: ClientAspect[F, Trivial, Trivial, A],
+      clientOptions: ClientOptions
+  ): Service[F, A]
+
   def mkClient[F[_]: Async, A](
       dispatcher: Dispatcher[F],
       channel: Channel,
       mkMetadata: A => F[Metadata],
       clientOptions: ClientOptions
-  ): Service[F, A]
+  ): Service[F, A] =
+    mkClientTrivial[F, A](
+      dispatcher,
+      channel,
+      ClientAspect.default[F, Trivial, Trivial].contraModify(mkMetadata),
+      clientOptions
+    )
 
   final def mkClient[F[_]: Async, A](
       dispatcher: Dispatcher[F],
