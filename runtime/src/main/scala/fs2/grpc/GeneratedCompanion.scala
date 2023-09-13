@@ -38,10 +38,10 @@ trait GeneratedCompanion[Service[*[_], _]] {
 
 ///=== Client ==========================================================================================================
 
-  def mkClientTrivial[F[_]: Async, A](
-      dispatcher: Dispatcher[F],
+  def mkClientTrivial[F[_], G[_]: Async, A](
+      dispatcher: Dispatcher[G],
       channel: Channel,
-      clientAspect: ClientAspect[F, F, Trivial, Trivial, A],
+      clientAspect: ClientAspect[F, G, Trivial, Trivial, A],
       clientOptions: ClientOptions
   ): Service[F, A]
 
@@ -51,7 +51,7 @@ trait GeneratedCompanion[Service[*[_], _]] {
       mkMetadata: A => F[Metadata],
       clientOptions: ClientOptions
   ): Service[F, A] =
-    mkClientTrivial[F, A](
+    mkClientTrivial[F, F, A](
       dispatcher,
       channel,
       ClientAspect.default[F, Trivial, Trivial].contraModify(mkMetadata),
@@ -132,10 +132,10 @@ trait GeneratedCompanion[Service[*[_], _]] {
 
 ///=== Service =========================================================================================================
 
-  protected def serviceBindingTrivial[F[_]: Async, A](
-      dispatcher: Dispatcher[F],
+  def serviceBindingTrivial[F[_], G[_]: Async, A](
+      dispatcher: Dispatcher[G],
       serviceImpl: Service[F, A],
-      serviceAspect: ServiceAspect[F, F, Trivial, Trivial, A],
+      serviceAspect: ServiceAspect[F, G, Trivial, Trivial, A],
       serverOptions: ServerOptions
   ): ServerServiceDefinition
 
@@ -145,12 +145,20 @@ trait GeneratedCompanion[Service[*[_], _]] {
       mkCtx: Metadata => F[A],
       serverOptions: ServerOptions
   ): ServerServiceDefinition =
-    serviceBindingTrivial[F, A](
+    serviceBindingTrivial[F, F, A](
       dispatcher,
       serviceImpl,
       ServiceAspect.default[F, Trivial, Trivial].modify(mkCtx),
       serverOptions
     )
+
+  def serviceTrivial[F[_], G[_]: Async, A](
+      dispatcher: Dispatcher[G],
+      serviceImpl: Service[F, A],
+      serviceAspect: ServiceAspect[F, G, Trivial, Trivial, A],
+      serverOptions: ServerOptions
+  ): ServerServiceDefinition =
+    serviceBindingTrivial[F, G, A](dispatcher, serviceImpl, serviceAspect, serverOptions)
 
   final def service[F[_]: Async, A](
       dispatcher: Dispatcher[F],

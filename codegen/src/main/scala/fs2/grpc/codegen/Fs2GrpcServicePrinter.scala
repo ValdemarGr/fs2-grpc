@@ -167,13 +167,13 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
       .add("}")
       .newline
       .addStringMargin(
-        s"""|def mkClientTrivial[F[_]: $Async, $Ctx](
-            |  dispatcher: $Dispatcher[F],
+        s"""|def mkClientTrivial[F[_], G[_]: $Async, $Ctx](
+            |  dispatcher: $Dispatcher[G],
             |  channel: $Channel,
-            |  clientAspect: ${ClientAspect}[F, F, $Trivial, $Trivial, $Ctx],
+            |  clientAspect: ${ClientAspect}[F, G, $Trivial, $Trivial, $Ctx],
             |  clientOptions: $ClientOptions
             |) = 
-            |  mkClientFull[F, F, $Trivial, $Trivial, $Ctx](
+            |  mkClientFull[F, G, $Trivial, $Trivial, $Ctx](
             |    dispatcher,
             |    channel,
             |    clientAspect,
@@ -184,7 +184,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
 
   private[this] def serviceBinding: PrinterEndo = {
     _.addStringMargin(
-      s"""|protected def serviceBindingFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
+      s"""|def serviceBindingFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
           |  dispatcher: $Dispatcher[G],
           |  serviceImpl: $serviceNameFs2[F, $Ctx],
           |  serviceAspect: ${ServiceAspect}[F, G, Dom, Cod, $Ctx],
@@ -200,13 +200,13 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
       .add("}")
       .newline
       .addStringMargin(
-        s"""|protected def serviceBindingTrivial[F[_]: $Async, $Ctx](
-            |  dispatcher: $Dispatcher[F],
+        s"""|def serviceBindingTrivial[F[_], G[_]: $Async, $Ctx](
+            |  dispatcher: $Dispatcher[G],
             |  serviceImpl: $serviceNameFs2[F, $Ctx],
-            |  serviceAspect: ${ServiceAspect}[F, F, $Trivial, $Trivial, $Ctx],
+            |  serviceAspect: ${ServiceAspect}[F, G, $Trivial, $Trivial, $Ctx],
             |  serverOptions: $ServerOptions
             |) = 
-            |  serviceBindingFull[F, F, $Trivial, $Trivial, $Ctx](
+            |  serviceBindingFull[F, G, $Trivial, $Trivial, $Ctx](
             |    dispatcher,
             |    serviceImpl,
             |    serviceAspect,
