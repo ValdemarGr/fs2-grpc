@@ -41,7 +41,7 @@ trait GeneratedCompanion[Service[*[_], _]] {
   def mkClientTrivial[F[_]: Async, A](
       dispatcher: Dispatcher[F],
       channel: Channel,
-      clientAspect: ClientAspect[F, Trivial, Trivial, A],
+      clientAspect: ClientAspect[F, F, Trivial, Trivial, A],
       clientOptions: ClientOptions
   ): Service[F, A]
 
@@ -135,7 +135,7 @@ trait GeneratedCompanion[Service[*[_], _]] {
   protected def serviceBindingTrivial[F[_]: Async, A](
       dispatcher: Dispatcher[F],
       serviceImpl: Service[F, A],
-      serviceAspect: ServiceAspect[F, Trivial, Trivial, A],
+      serviceAspect: ServiceAspect[F, F, Trivial, Trivial, A],
       serverOptions: ServerOptions
   ): ServerServiceDefinition
 

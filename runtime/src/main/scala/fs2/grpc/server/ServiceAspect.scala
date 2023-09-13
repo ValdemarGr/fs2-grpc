@@ -12,38 +12,38 @@ final case class ServerCallContext[Req, Res, Dom[_], Cod[_]](
     cod: Cod[Res]
 )
 
-trait ServiceAspect[F[_], Dom[_], Cod[_], A] { self =>
+trait ServiceAspect[F[_], G[_], Dom[_], Cod[_], A] { self =>
   def visitUnaryToUnary[Req, Res](
       callCtx: ServerCallContext[Req, Res, Dom, Cod],
       req: Req,
       next: (Req, A) => F[Res]
-  ): F[Res]
+  ): G[Res]
 
   def visitUnaryToStreaming[Req, Res](
       callCtx: ServerCallContext[Req, Res, Dom, Cod],
       req: Req,
       next: (Req, A) => fs2.Stream[F, Res]
-  ): fs2.Stream[F, Res]
+  ): fs2.Stream[G, Res]
 
   def visitStreamingToUnary[Req, Res](
       callCtx: ServerCallContext[Req, Res, Dom, Cod],
-      req: fs2.Stream[F, Req],
+      req: fs2.Stream[G, Req],
       next: (fs2.Stream[F, Req], A) => F[Res]
-  ): F[Res]
+  ): G[Res]
 
   def visitStreamingToStreaming[Req, Res](
       callCtx: ServerCallContext[Req, Res, Dom, Cod],
-      req: fs2.Stream[F, Req],
+      req: fs2.Stream[G, Req],
       next: (fs2.Stream[F, Req], A) => fs2.Stream[F, Res]
-  ): fs2.Stream[F, Res]
+  ): fs2.Stream[G, Res]
 
-  def modify[B](f: A => F[B])(implicit F: Monad[F]): ServiceAspect[F, Dom, Cod, B] =
-    new ServiceAspect[F, Dom, Cod, B] {
+  def modify[B](f: A => F[B])(implicit F: Monad[F]): ServiceAspect[F, G, Dom, Cod, B] =
+    new ServiceAspect[F, G, Dom, Cod, B] {
       override def visitUnaryToUnary[Req, Res](
           callCtx: ServerCallContext[Req, Res, Dom, Cod],
           req: Req,
           request: (Req, B) => F[Res]
-      ): F[Res] =
+      ): G[Res] =
         self.visitUnaryToUnary[Req, Res](
           callCtx,
           req,
@@ -54,7 +54,7 @@ trait ServiceAspect[F[_], Dom[_], Cod[_], A] { self =>
           callCtx: ServerCallContext[Req, Res, Dom, Cod],
           req: Req,
           request: (Req, B) => Stream[F, Res]
-      ): Stream[F, Res] =
+      ): Stream[G, Res] =
         self.visitUnaryToStreaming[Req, Res](
           callCtx,
           req,
@@ -63,9 +63,9 @@ trait ServiceAspect[F[_], Dom[_], Cod[_], A] { self =>
 
       override def visitStreamingToUnary[Req, Res](
           callCtx: ServerCallContext[Req, Res, Dom, Cod],
-          req: fs2.Stream[F, Req],
+          req: fs2.Stream[G, Req],
           request: (Stream[F, Req], B) => F[Res]
-      ): F[Res] =
+      ): G[Res] =
         self.visitStreamingToUnary[Req, Res](
           callCtx,
           req,
@@ -74,9 +74,9 @@ trait ServiceAspect[F[_], Dom[_], Cod[_], A] { self =>
 
       override def visitStreamingToStreaming[Req, Res](
           callCtx: ServerCallContext[Req, Res, Dom, Cod],
-          req: fs2.Stream[F, Req],
+          req: fs2.Stream[G, Req],
           request: (Stream[F, Req], B) => Stream[F, Res]
-      ): Stream[F, Res] =
+      ): Stream[G, Res] =
         self.visitStreamingToStreaming[Req, Res](
           callCtx,
           req,
@@ -86,7 +86,7 @@ trait ServiceAspect[F[_], Dom[_], Cod[_], A] { self =>
 }
 
 object ServiceAspect {
-  def default[F[_], Dom[_], Cod[_]] = new ServiceAspect[F, Dom, Cod, Metadata] {
+  def default[F[_], Dom[_], Cod[_]] = new ServiceAspect[F, F, Dom, Cod, Metadata] {
     override def visitUnaryToUnary[Req, Res](
         callCtx: ServerCallContext[Req, Res, Dom, Cod],
         req: Req,

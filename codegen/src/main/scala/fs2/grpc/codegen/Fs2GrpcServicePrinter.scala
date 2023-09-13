@@ -63,7 +63,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
 
   private[this] def createClientCall(method: MethodDescriptor) = {
     val basicClientCall =
-      s"$Fs2ClientCall[F](channel, ${method.grpcDescriptor.fullName}, dispatcher, clientOptions)"
+      s"$Fs2ClientCall[G](channel, ${method.grpcDescriptor.fullName}, dispatcher, clientOptions)"
     if (method.isServerStreaming)
       s"$Stream.eval($basicClientCall)"
     else
@@ -92,7 +92,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
     val inType = method.inputType.scalaType
     val outType = method.outputType.scalaType
     val descriptor = method.grpcDescriptor.fullName
-    val handler = s"$Fs2ServerCallHandler[F](dispatcher, serverOptions).${handleMethod(method)}[$inType, $outType]"
+    val handler = s"$Fs2ServerCallHandler[G](dispatcher, serverOptions).${handleMethod(method)}[$inType, $outType]"
 
     val serviceCall = s"serviceImpl.${method.name}"
 
@@ -152,10 +152,10 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
 
   private[this] def serviceClient: PrinterEndo = {
     _.addStringMargin(
-      s"""|def mkClientFull[F[_]: $Async, Dom[_], Cod[_], $Ctx](
-          |  dispatcher: $Dispatcher[F],
+      s"""|def mkClientFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
+          |  dispatcher: $Dispatcher[G],
           |  channel: $Channel,
-          |  clientAspect: ${ClientAspect}[F, Dom, Cod, $Ctx],
+          |  clientAspect: ${ClientAspect}[F, G, Dom, Cod, $Ctx],
           |  clientOptions: $ClientOptions
           |)(implicit"""
     )
@@ -170,10 +170,10 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
         s"""|def mkClientTrivial[F[_]: $Async, $Ctx](
             |  dispatcher: $Dispatcher[F],
             |  channel: $Channel,
-            |  clientAspect: ${ClientAspect}[F, $Trivial, $Trivial, $Ctx],
+            |  clientAspect: ${ClientAspect}[F, F, $Trivial, $Trivial, $Ctx],
             |  clientOptions: $ClientOptions
             |) = 
-            |  mkClientFull[F, $Trivial, $Trivial, $Ctx](
+            |  mkClientFull[F, F, $Trivial, $Trivial, $Ctx](
             |    dispatcher,
             |    channel,
             |    clientAspect,
@@ -184,10 +184,10 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
 
   private[this] def serviceBinding: PrinterEndo = {
     _.addStringMargin(
-      s"""|protected def serviceBindingFull[F[_]: $Async, Dom[_], Cod[_], $Ctx](
-          |  dispatcher: $Dispatcher[F],
+      s"""|protected def serviceBindingFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
+          |  dispatcher: $Dispatcher[G],
           |  serviceImpl: $serviceNameFs2[F, $Ctx],
-          |  serviceAspect: ${ServiceAspect}[F, Dom, Cod, $Ctx],
+          |  serviceAspect: ${ServiceAspect}[F, G, Dom, Cod, $Ctx],
           |  serverOptions: $ServerOptions
           |)(implicit"""
     )
@@ -203,10 +203,10 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
         s"""|protected def serviceBindingTrivial[F[_]: $Async, $Ctx](
             |  dispatcher: $Dispatcher[F],
             |  serviceImpl: $serviceNameFs2[F, $Ctx],
-            |  serviceAspect: ${ServiceAspect}[F, $Trivial, $Trivial, $Ctx],
+            |  serviceAspect: ${ServiceAspect}[F, F, $Trivial, $Trivial, $Ctx],
             |  serverOptions: $ServerOptions
             |) = 
-            |  serviceBindingFull[F, $Trivial, $Trivial, $Ctx](
+            |  serviceBindingFull[F, F, $Trivial, $Trivial, $Ctx](
             |    dispatcher,
             |    serviceImpl,
             |    serviceAspect,
