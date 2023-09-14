@@ -33,6 +33,8 @@ import fs2.grpc.shared.Trivial
 import fs2.grpc.server.ServiceAspect
 
 trait GeneratedCompanion[Service[*[_], _]] {
+  type Doms[Dom[_]]
+  type Cods[Cod[_]]
 
   implicit final def serviceCompanion: GeneratedCompanion[Service] = this
 

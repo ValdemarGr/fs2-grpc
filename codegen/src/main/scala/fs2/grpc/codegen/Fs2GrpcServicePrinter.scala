@@ -130,9 +130,57 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
       .call(serviceClient)
       .newline
       .call(serviceBinding)
+      .newline
+      .call(domsStructure)
+      .newline
+      .call(codsStructure)
       .outdent
       .newline
       .add("}")
+
+  private[this] def doms =
+    service.methods
+      .map(_.inputType.scalaType)
+      .distinct
+
+  private[this] def cods =
+    service.methods
+      .map(_.outputType.scalaType)
+      .distinct
+
+  private[this] def typeclassStructure(
+      name: String,
+      fieldName: String,
+      fieldType: String,
+      values: Seq[String]
+  ): PrinterEndo = { p =>
+    val types: PrinterEndo = _.addWithDelimiter(",") {
+      values.zipWithIndex.map { case (v, i) => s"${fieldName}$i: $fieldType[$v]" }
+    }
+    p.add(s"case class $name[${fieldType}[_]](")
+      .indented(types)
+      .add(")")
+      .newline
+      .add(s"object $name {")
+      .indented {
+        _.add(s"implicit def typeclassInstance[${fieldType}[_]](implicit ")
+          .indented(types)
+          .add(s"): ${name}[${fieldType}] = $name(")
+          .indented {
+            _.addWithDelimiter(",") {
+              values.zipWithIndex.map { case (_, i) => s"${fieldName}$i" }
+            }
+          }
+          .add(")")
+      }
+      .add("}")
+  }
+
+  private[this] def codsStructure: PrinterEndo =
+    typeclassStructure("Cods", "cod", "Cod", cods)
+
+  private[this] def domsStructure: PrinterEndo =
+    typeclassStructure("Doms", "dom", "Dom", doms)
 
   private[this] def typeclasses: PrinterEndo = { p =>
     val doms = service.methods
