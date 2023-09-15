@@ -80,7 +80,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
       .indented {
         _.addStringMargin(
           s"""|clientAspect.${visitMethod(method)}[$inType, $outType](
-              |  ${ClientCallContext}(ctx, $descriptor, implicitly[Dom[$inType]], implicitly[Cod[$outType]]),
+              |  ${ClientCallContext}(ctx, $descriptor),
               |  request,
               |  (req, m) => ${createClientCall(method)}.flatMap(_.${handleMethod(method)}(req, m))
               |)""".stripMargin
@@ -101,7 +101,7 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
           |  $descriptor,
           |  $handler{ (r, m) => 
           |    serviceAspect.${visitMethod(method)}[$inType, $outType](
-          |      ${ServerCallContext}(m, $descriptor, implicitly[Dom[$inType]], implicitly[Cod[$outType]]),
+          |      ${ServerCallContext}(m, $descriptor),
           |      r,
           |      (r, m) => $serviceCall(r, m)
           |    )
@@ -134,85 +134,33 @@ class Fs2GrpcServicePrinter(service: ServiceDescriptor, serviceSuffix: String, d
       .newline
       .add("}")
 
-  private[this] def typeclasses: PrinterEndo = { p =>
-    val doms = service.methods
-      .map(_.inputType.scalaType)
-      .distinct
-      .zipWithIndex
-      .map { case (n, i) => s"dom$i: Dom[$n]" }
-
-    val cods = service.methods
-      .map(_.outputType.scalaType)
-      .distinct
-      .zipWithIndex
-      .map { case (n, i) => s"cod$i: Cod[$n]" }
-
-    p.addWithDelimiter(",")(doms ++ cods)
-  }
-
   private[this] def serviceClient: PrinterEndo = {
     _.addStringMargin(
-      s"""|def mkClientFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
+      s"""|def mkClientFull[F[_], G[_]: $Async, $Ctx](
           |  dispatcher: $Dispatcher[G],
           |  channel: $Channel,
-          |  clientAspect: ${ClientAspect}[F, G, Dom, Cod, $Ctx],
+          |  clientAspect: ${ClientAspect}[F, G, $Ctx],
           |  clientOptions: $ClientOptions
-          |)(implicit"""
-    )
-      .indented(typeclasses)
-      .add(s"): $serviceNameFs2[F, $Ctx] = new $serviceNameFs2[F, $Ctx] {")
-      .indent
+          |): $serviceNameFs2[F, $Ctx] = new $serviceNameFs2[F, $Ctx] {"""
+    ).indent
       .call(serviceMethodImplementations)
       .outdent
       .add("}")
-      .newline
-      .addStringMargin(
-        s"""|def mkClientTrivial[F[_], G[_]: $Async, $Ctx](
-            |  dispatcher: $Dispatcher[G],
-            |  channel: $Channel,
-            |  clientAspect: ${ClientAspect}[F, G, $Trivial, $Trivial, $Ctx],
-            |  clientOptions: $ClientOptions
-            |) = 
-            |  mkClientFull[F, G, $Trivial, $Trivial, $Ctx](
-            |    dispatcher,
-            |    channel,
-            |    clientAspect,
-            |    clientOptions
-            |  )"""
-      )
   }
 
   private[this] def serviceBinding: PrinterEndo = {
     _.addStringMargin(
-      s"""|def serviceBindingFull[F[_], G[_]: $Async, Dom[_], Cod[_], $Ctx](
+      s"""|protected def serviceBindingFull[F[_], G[_]: $Async, $Ctx](
           |  dispatcher: $Dispatcher[G],
           |  serviceImpl: $serviceNameFs2[F, $Ctx],
-          |  serviceAspect: ${ServiceAspect}[F, G, Dom, Cod, $Ctx],
+          |  serviceAspect: ${ServiceAspect}[F, G, $Ctx],
           |  serverOptions: $ServerOptions
-          |)(implicit"""
-    )
-      .indented(typeclasses)
-      .add(") = {")
-      .indent
+          |) = {"""
+    ).indent
       .add(s"$ServerServiceDefinition")
       .call(serviceBindingImplementations)
       .outdent
       .add("}")
-      .newline
-      .addStringMargin(
-        s"""|def serviceBindingTrivial[F[_], G[_]: $Async, $Ctx](
-            |  dispatcher: $Dispatcher[G],
-            |  serviceImpl: $serviceNameFs2[F, $Ctx],
-            |  serviceAspect: ${ServiceAspect}[F, G, $Trivial, $Trivial, $Ctx],
-            |  serverOptions: $ServerOptions
-            |) = 
-            |  serviceBindingFull[F, G, $Trivial, $Trivial, $Ctx](
-            |    dispatcher,
-            |    serviceImpl,
-            |    serviceAspect,
-            |    serverOptions
-            |  )"""
-      )
   }
 
   // /
@@ -235,7 +183,6 @@ object Fs2GrpcServicePrinter {
     private val fs2grpcPkg = "_root_.fs2.grpc"
     private val fs2grpcServerPkg = "_root_.fs2.grpc.server"
     private val fs2grpcClientPkg = "_root_.fs2.grpc.client"
-    private val fs2grpcSharedPkg = "_root_.fs2.grpc.shared"
     private val grpcPkg = "_root_.io.grpc"
 
     // /
@@ -261,7 +208,6 @@ object Fs2GrpcServicePrinter {
     val ServerCallContext = s"${fs2grpcServerPkg}.ServerCallContext"
     val ClientAspect = s"${fs2grpcClientPkg}.ClientAspect"
     val ClientCallContext = s"${fs2grpcClientPkg}.ClientCallContext"
-    val Trivial = s"${fs2grpcSharedPkg}.Trivial"
   }
 
 }

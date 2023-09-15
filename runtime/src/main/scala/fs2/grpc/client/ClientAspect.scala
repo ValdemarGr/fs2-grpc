@@ -5,66 +5,64 @@ import cats._
 import cats.syntax.all._
 import fs2.Stream
 
-final case class ClientCallContext[Req, Res, Dom[_], Cod[_], A](
+final case class ClientCallContext[Req, Res, A](
     ctx: A,
-    methodDescriptor: MethodDescriptor[Req, Res],
-    dom: Dom[Req],
-    cod: Cod[Res]
+    methodDescriptor: MethodDescriptor[Req, Res]
 )
 
-trait ClientAspect[F[_], G[_], Dom[_], Cod[_], A] { self =>
+trait ClientAspect[F[_], G[_], A] { self =>
   def visitUnaryToUnary[Req, Res](
-      callCtx: ClientCallContext[Req, Res, Dom, Cod, A],
+      callCtx: ClientCallContext[Req, Res, A],
       req: Req,
       request: (Req, Metadata) => G[Res]
   ): F[Res]
 
   def visitUnaryToStreaming[Req, Res](
-      callCtx: ClientCallContext[Req, Res, Dom, Cod, A],
+      callCtx: ClientCallContext[Req, Res, A],
       req: Req,
       request: (Req, Metadata) => Stream[G, Res]
   ): Stream[F, Res]
 
   def visitStreamingToUnary[Req, Res](
-      callCtx: ClientCallContext[Req, Res, Dom, Cod, A],
+      callCtx: ClientCallContext[Req, Res, A],
       req: Stream[F, Req],
       request: (Stream[G, Req], Metadata) => G[Res]
   ): F[Res]
 
   def visitStreamingToStreaming[Req, Res](
-      callCtx: ClientCallContext[Req, Res, Dom, Cod, A],
+      callCtx: ClientCallContext[Req, Res, A],
       req: Stream[F, Req],
       request: (Stream[G, Req], Metadata) => Stream[G, Res]
   ): Stream[F, Res]
 
-  def contraModify[B](f: B => F[A])(implicit F: Monad[F]): ClientAspect[F, G, Dom, Cod, B] =
-    new ClientAspect[F, G, Dom, Cod, B] {
-      def modCtx[Req, Res](ccc: ClientCallContext[Req, Res, Dom, Cod, B]): F[ClientCallContext[Req, Res, Dom, Cod, A]] =
+  def contraModify[B](f: B => F[A])(implicit F: Monad[F]): ClientAspect[F, G, B] =
+    new ClientAspect[F, G, B] {
+      def modCtx[Req, Res](ccc: ClientCallContext[Req, Res, B]): F[ClientCallContext[Req, Res, A]] =
         f(ccc.ctx).map(a => ccc.copy(ctx = a))
 
       override def visitUnaryToUnary[Req, Res](
-          callCtx: ClientCallContext[Req, Res, Dom, Cod, B],
+          callCtx: ClientCallContext[Req, Res, B],
           req: Req,
           request: (Req, Metadata) => G[Res]
       ): F[Res] =
         modCtx(callCtx).flatMap(self.visitUnaryToUnary(_, req, request))
 
       override def visitUnaryToStreaming[Req, Res](
-          callCtx: ClientCallContext[Req, Res, Dom, Cod, B],
+          callCtx: ClientCallContext[Req, Res, B],
           req: Req,
           request: (Req, Metadata) => Stream[G, Res]
       ): Stream[F, Res] =
         Stream.eval(modCtx(callCtx)).flatMap(self.visitUnaryToStreaming(_, req, request))
 
       override def visitStreamingToUnary[Req, Res](
-          callCtx: ClientCallContext[Req, Res, Dom, Cod, B],
+          callCtx: ClientCallContext[Req, Res, B],
           req: Stream[F, Req],
           request: (Stream[G, Req], Metadata) => G[Res]
       ): F[Res] =
         modCtx(callCtx).flatMap(self.visitStreamingToUnary(_, req, request))
 
       override def visitStreamingToStreaming[Req, Res](
-          callCtx: ClientCallContext[Req, Res, Dom, Cod, B],
+          callCtx: ClientCallContext[Req, Res, B],
           req: Stream[F, Req],
           request: (Stream[G, Req], Metadata) => Stream[G, Res]
       ): Stream[F, Res] =
@@ -73,27 +71,27 @@ trait ClientAspect[F[_], G[_], Dom[_], Cod[_], A] { self =>
 }
 
 object ClientAspect {
-  def default[F[_], Dom[_], Cod[_]] = new ClientAspect[F, F, Dom, Cod, Metadata] {
+  def default[F[_]] = new ClientAspect[F, F, Metadata] {
     override def visitUnaryToUnary[Req, Res](
-        callCtx: ClientCallContext[Req, Res, Dom, Cod, Metadata],
+        callCtx: ClientCallContext[Req, Res, Metadata],
         req: Req,
         request: (Req, Metadata) => F[Res]
     ): F[Res] = request(req, callCtx.ctx)
 
     override def visitUnaryToStreaming[Req, Res](
-        callCtx: ClientCallContext[Req, Res, Dom, Cod, Metadata],
+        callCtx: ClientCallContext[Req, Res, Metadata],
         req: Req,
         request: (Req, Metadata) => Stream[F, Res]
     ): Stream[F, Res] = request(req, callCtx.ctx)
 
     override def visitStreamingToUnary[Req, Res](
-        callCtx: ClientCallContext[Req, Res, Dom, Cod, Metadata],
+        callCtx: ClientCallContext[Req, Res, Metadata],
         req: Stream[F, Req],
         request: (Stream[F, Req], Metadata) => F[Res]
     ): F[Res] = request(req, callCtx.ctx)
 
     override def visitStreamingToStreaming[Req, Res](
-        callCtx: ClientCallContext[Req, Res, Dom, Cod, Metadata],
+        callCtx: ClientCallContext[Req, Res, Metadata],
         req: Stream[F, Req],
         request: (Stream[F, Req], Metadata) => Stream[F, Res]
     ): Stream[F, Res] = request(req, callCtx.ctx)
