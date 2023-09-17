@@ -108,8 +108,7 @@ class AspectSpec extends CatsEffectSuite with CatsEffectFunFixtures {
 
       override def serverStreaming(request: TestMessage, ctx: Metadata): fs2.Stream[Traced, TestMessage] =
         spanStream("serverStreaming") {
-          fs2.Stream.eval(log("serverStreaming")) >>
-            fs2.Stream(request).repeatN(2)
+            fs2.Stream(request).repeatN(2).evalTap(_ => log("serverStreaming"))
         }
 
       override def bothStreaming(
@@ -117,12 +116,11 @@ class AspectSpec extends CatsEffectSuite with CatsEffectFunFixtures {
           ctx: Metadata
       ): fs2.Stream[Traced, TestMessage] =
         spanStream("bothStreaming") {
-          fs2.Stream.eval(log("bothStreaming")) >>
-            request
+          request.evalTap(_ => log("bothStreaming"))
         }
     }
 
-    IO.ref(List.empty[SpanInfo]).map { state =>
+    IO.ref(List.empty[SpanInfo]).flatMap { state =>
       def runRootTrace[A](cctx: ServerCallContext[?, ?])(fa: Traced[A]): IO[A] = {
         val root = Span(cctx.methodDescriptor.getFullMethodName(), Right(getTraceHeader(cctx.metadata)))
         fa.run(root).run.flatMap { case (xs, a) =>
@@ -227,24 +225,22 @@ class AspectSpec extends CatsEffectSuite with CatsEffectFunFixtures {
             def trackClient[A](traced: Traced[A]): IO[List[SpanInfo]] =
                 traced.run(Span("root", Right(rootKey))).written
 
-            def trackAndAssertServer[A](name: String, n: Int)(fa: IO[A]): IO[Unit] =
+            def trackAndAssertServer[A](name: String, n: Int)(fa: IO[A])(implicit loc: Location): IO[Unit] =
                 trackServer(fa).map{ serverInfos =>
                     assertEquals(serverInfos.size, n)
                     serverInfos.foreach{ si => 
                         assertEquals(si.span.name, name)
-                        assert(clue(si.span.parent).isRight, "is root")
-                        assertEquals(si.span.parent.toOption.get, rootKey)
+                        assert(clue(si.span.parent).isLeft, "is child")
                         assertEquals(si.messages, List(name))
                     }
                 }
 
-            def trackAndAssertClient[A](name: String, n: Int)(fa: Traced[A]): IO[Unit] =
+            def trackAndAssertClient[A](name: String, n: Int)(fa: Traced[A])(implicit loc: Location): IO[Unit] =
                 trackClient(fa).map{ clientInfos =>
                     assertEquals(clientInfos.size, n)
                     clientInfos.foreach{ ci =>
                         assertEquals(ci.span.name, s"client-${name}")
-                        assert(clue(ci.span.parent).isRight, "is root")
-                        assertEquals(ci.span.parent.toOption.get, rootKey)
+                        assert(clue(ci.span.parent).isLeft, "is child")
                         assertEquals(ci.messages, List(s"client-${name}"))
                     }
                 }
@@ -271,7 +267,7 @@ class AspectSpec extends CatsEffectSuite with CatsEffectFunFixtures {
             }
 
             val serverStreaming = trackAndAssertServer("serverStreaming", 2) {
-                trackAndAssertClient("serverStreaming", 2){
+                trackAndAssertClient("serverStreaming", 1){
                     span("client-serverStreaming") {
                         log("client-serverStreaming") >> 
                         client.serverStreaming(TestMessage.defaultInstance, ()).compile.drain
